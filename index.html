@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSocket Chat</title>
-</head>
+    <script src="https://unpkg.com/htmx.org@1.9.11" integrity="sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0" crossorigin="anonymous"></script>
+  </head>
 <body>
     <div id="messages"></div>
 
@@ -12,15 +13,17 @@
         <div>{{ . }}</div>
     {{ end }}
 
-    <form id="messageForm">
-        <input type="text" id="messageInput" placeholder="Type your message here...">
-        <button type="submit">Send</button>
+    <form id="messageForm" hx-post="/find-match/">
+        <button type="submit">Ranked Set</button>
     </form>
-
     <script>
       const socket = new WebSocket('ws://localhost:8080/ws');
-      socket.open = function (event) {
+
+      // on login send the data to the server
+      socket.onopen = () => {
         console.log('WebSocket is open now.');
+        const data = JSON.parse(JSON.stringify({ message: 'Hello from client!' }));
+        socket.send(data);
       };
   </script>
 
