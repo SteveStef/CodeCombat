@@ -25,6 +25,7 @@ const (
   HARD_POINTS = 100
 )
 
+
 type Question struct {
   Description string
   Answer string
