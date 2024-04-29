@@ -1,13 +1,16 @@
 package main
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"golang.org/x/net/websocket"
   "encoding/json"
-
+  "os"
+  "github.com/joho/godotenv"
+  "github.com/google/uuid"
 )
+
+var ValidDomains = []string{"http://localhost:5173", "http://localhost:8080"}
 
 const (
   MAX_PLAYERS = 2
@@ -24,7 +27,6 @@ const (
   MEDIUM_POINTS = 50
   HARD_POINTS = 100
 )
-
 
 type Question struct {
   Description string
@@ -54,12 +56,46 @@ type User struct {
   Conn *websocket.Conn
 }
 
+func CorsMiddleware(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    domain := r.Header.Get("Origin")
+    if domain != "" {
+      for _, validDomain := range ValidDomains {
+        if domain == validDomain {
+          w.Header().Set("Access-Control-Allow-Origin", domain)
+          break
+        }
+      }
+    }
+
+    w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+    if r.Method == "OPTIONS" {
+      return
+    }
+    next.ServeHTTP(w, r)
+  })
+}
+
+func Send(message string, socket *websocket.Conn) error {
+  _, err := socket.Write([]byte(message))
+
+  if err != nil {
+    return err
+  }
+
+  return nil;
+}
+
 func (server *Server) Open_conn(socket *websocket.Conn) {
   fmt.Println("Connection established", socket.RemoteAddr())
-  user := User{ ID: "1", Username: "guest", Email: "", Conn: socket }
+  user := User{ ID: fmt.Sprintf("%d", (len(server.Clients) + 1)), Username: "guest", Email: "", Conn: socket }
   server.Clients = append(server.Clients, user)
   fmt.Println("Number of clients:", server.Clients, len(server.Clients))
   server.Listen(socket)
+  return;
 }
 
 func (server *Server) Listen(socket *websocket.Conn) {
@@ -143,23 +179,37 @@ func (server *Server) Add_to_queue(socket *websocket.Conn) bool {
   }
 }
 
+func Auth (w http.ResponseWriter, r *http.Request) {
+  cookie := r.Header.Get("Authorization")
+
+  if cookie == "" {
+    w.WriteHeader(http.StatusUnauthorized)
+    return
+  }
+  
+}
+
 func main() {
-  fmt.Println("Starting server on port 8080")
+  godotenv.Load()
+
+  requiredEnvVars := []string{"PORT"}
+  for _, envVar := range requiredEnvVars {
+    if os.Getenv(envVar) == "" {
+      fmt.Printf("Environment variable %s is not set\n", envVar)
+      os.Exit(1)
+    }
+  }
+
   server := Server{ Clients: []User{}, Queue: []User{}, Current_Games: []Ranked_Set{} }
 
+  mux := http.NewServeMux()
   http.Handle("/ws", websocket.Handler(server.Open_conn))
+  http.HandleFunc("/auth/", Auth)
+  handler := CorsMiddleware(mux)
 
-  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    template := template.Must(template.ParseFiles("index.html"))
-		data := []string{"Hello, World!", "Welcome to our site!", "Enjoy your visit!"}
-    template.Execute(w, data)
-  })
-
-  http.HandleFunc("/find-match/", func (w http.ResponseWriter, r *http.Request) {
-    
-  })
-
-  http.ListenAndServe(":8080", nil)
+  port := os.Getenv("PORT")
+  fmt.Println("Listening on port " + port)
+  http.ListenAndServe(":"+port, handler)
 }
 
 func get_question() *Question {
