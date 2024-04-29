@@ -136,6 +136,7 @@ func (server *Server) Remove_from_queue() {
 func (server *Server) Add_to_queue(socket *websocket.Conn) bool {
   if(len(server.Queue) < MAX_PLAYERS) {
     return true
+
   } else {
     server.Remove_from_queue()
     return false
