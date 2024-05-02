@@ -1,0 +1,21 @@
+{
+  "DatabaseID": "07677b81-3921-41f9-81f1-1ad65cfb848e",
+  "Tables": [
+    {
+      "name": "combatants",
+      "identifier": "username",
+      "requires": ["username", "password"],
+      "entryTemplate": {
+        "username": "string",
+        "password": "string",
+        "elo": "number",
+        "language": "string",
+        "solved": "number",
+        "rank": "number",
+        "level": "string",
+        "wins": "number",
+        "loses": "number"
+      }
+    }
+  ]
+}
