@@ -1,15 +1,17 @@
 package main
 
 import (
-  "fmt"
-  "log"
-  "net/http"
-  "os"
-  "KombatKode/WSServer"
-  "github.com/google/uuid"
-  "KombatKode/GolangBsonDB"
-  "github.com/joho/godotenv"
-  "golang.org/x/net/websocket"
+	"os"
+	"log"
+	"fmt"
+	"net/http"
+	"io/ioutil"
+	"encoding/json"
+	"KombatKode/WSServer"
+	"github.com/google/uuid"
+	"KombatKode/GolangBsonDB"
+	"github.com/joho/godotenv"
+	"golang.org/x/net/websocket"
 )
 
 var ValidDomains = []string{"http://localhost:5173", "http://localhost:8080"}
@@ -54,6 +56,89 @@ func Auth (w http.ResponseWriter, r *http.Request) {
   }
 }
 
+func Signup(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+  }
+  var request struct {
+    Username string `json:"username"`
+    Password string `json:"password"`
+  }
+  err = json.Unmarshal(body, &request)
+  if err != nil {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+  }
+  user := map[string]interface{}{
+    "username": request.Username, "password": request.Password,
+    "elo": 0, "language": "", "solved":0, "rank": 0,"level": "Apprentence", "wins": 0, "loses": 0}
+
+  entryInterface, err := db.CreateEntry("combatants", user) // response is a map[string]string
+  if err != nil {
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+
+  entry, ok := entryInterface.(map[string]interface{})
+  if !ok {
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+
+  bytes, _ := json.Marshal(entry)
+  w.Write(bytes)
+}
+
+
+
+
+
+func Login(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+  }
+
+  var request struct {
+    Username string `json:"username"`
+    Password string `json:"password"`
+  }
+
+  err = json.Unmarshal(body, &request)
+  if err != nil {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+  }
+
+  entryInterface, err := db.GetEntry("combatants", map[string]interface{}{"username": request.Username, "password": request.Password})
+  if err != nil {
+    return
+  }
+
+  entry, ok := entryInterface.(map[string]interface{})
+  if !ok {
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+
+  if entry["error"] != nil || entry["password"] != request.Password {
+    w.WriteHeader(http.StatusUnauthorized)
+    return
+  }
+
+  uuid := uuid.New().String()
+
+  bytes, _ := json.Marshal(entry)
+  w.Write(bytes)
+}
+
+
+
+
+
 func main() {
   err := godotenv.Load()
   if err != nil {
@@ -69,6 +154,9 @@ func main() {
 
   mux.Handle("/ws", CorsMiddleware(websocket.Handler(server.Open_Conn)))
   mux.HandleFunc("/auth", Auth)
+
+  mux.HandleFunc("/signup", Signup)
+  mux.HandleFunc("/login", Login)
 
   port := os.Getenv("PORT")
   if port == "" {

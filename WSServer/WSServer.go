@@ -21,6 +21,8 @@ const (
   EASY_POINTS = 10 
   MEDIUM_POINTS = 50
   HARD_POINTS = 100
+
+  TABLE_NAME = "combatants"
 )
 
 type Question struct {
