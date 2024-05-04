@@ -4,6 +4,7 @@ import (
   "os"
   "log"
   "fmt"
+  "reflect"
   "net/http"
   "io/ioutil"
   "encoding/json"
@@ -79,11 +80,18 @@ func RouteCorsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func Auth (w http.ResponseWriter, r *http.Request) {
-  cookie := r.Header.Get("Authorization")
-  if cookie == "" {
-    w.WriteHeader(http.StatusUnauthorized)
+  token := r.Header.Get("Authorization")
+
+  data := map[string]interface{}{"where": "id", "is": token}
+  entryInterface, err := db.GetEntries("combatants", data)
+  if err != nil {
     return
   }
+
+  entry := reflect.ValueOf(entryInterface)
+  bytes, _ := json.Marshal(entry.Interface())
+
+  w.Write(bytes)
 }
 
 func Signup(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +183,7 @@ func main() {
 
   mux := http.NewServeMux()
   mux.Handle("/ws", CorsMiddleware(websocket.Handler(server.Open_Conn)))
-  mux.HandleFunc("/auth", Auth)
+  mux.HandleFunc("/auth", RouteCorsMiddleware(Auth))
 
   mux.HandleFunc("/signup", RouteCorsMiddleware(Signup))
   mux.HandleFunc("/login", RouteCorsMiddleware(Login))
