@@ -6,6 +6,7 @@
       "identifier": "username",
       "requires": ["username", "password"],
       "entryTemplate": {
+        "id": "string",
         "username": "string",
         "password": "string",
         "elo": "number",
