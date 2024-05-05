@@ -4,19 +4,16 @@ import (
   "os"
   "log"
   "fmt"
-  "reflect"
   "net/http"
-  "io/ioutil"
-  "encoding/json"
+  "KombatKode/Auth"
+  "KombatKode/Compiler"
   "KombatKode/WSServer"
-  "github.com/google/uuid"
   "KombatKode/GolangBsonDB"
   "github.com/joho/godotenv"
   "golang.org/x/net/websocket"
 )
 
 var ValidDomains = []string{"http://localhost:5173", "http://localhost:8080"}
-var db *DB.BsonDB
 var wssever *WSServer.Server
 
 func CorsMiddleware(next http.Handler) http.Handler {
@@ -64,12 +61,10 @@ func RouteCorsMiddleware(next http.HandlerFunc) http.HandlerFunc {
         break
       }
     }
-
     if !allowed {
       w.WriteHeader(http.StatusForbidden)
       return
     }
-
     if r.Method == "OPTIONS" {
       w.WriteHeader(http.StatusOK)
       return
@@ -79,98 +74,6 @@ func RouteCorsMiddleware(next http.HandlerFunc) http.HandlerFunc {
   }
 }
 
-func Auth (w http.ResponseWriter, r *http.Request) {
-  token := r.Header.Get("Authorization")
-
-  data := map[string]interface{}{"where": "id", "is": token}
-  entryInterface, err := db.GetEntries("combatants", data)
-  if err != nil {
-    return
-  }
-
-  entry := reflect.ValueOf(entryInterface)
-  bytes, _ := json.Marshal(entry.Interface())
-
-  w.Write(bytes)
-}
-
-func Signup(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    return
-  }
-  var request struct {
-    Username string `json:"username"`
-    Password string `json:"password"`
-  }
-  err = json.Unmarshal(body, &request)
-  if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    return
-  }
-
-  uuid := uuid.New().String()
-
-  user := map[string]interface{}{
-    "id": uuid, "username": request.Username, "password": request.Password,
-    "elo": 0, "language": "", "solved":0, "rank": 0,"level": "Apprentence", "wins": 0, "loses": 0}
-
-  entryInterface, err := db.CreateEntry("combatants", user)
-  if err != nil {
-    fmt.Println(err)
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
-  entry, ok := entryInterface.(map[string]interface{})
-  if !ok {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
-  bytes, _ := json.Marshal(entry)
-  w.Write(bytes)
-}
-
-
-func Login(w http.ResponseWriter, r *http.Request) {
-  body, err := ioutil.ReadAll(r.Body)
-  if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    return
-  }
-  var request struct {
-    Username string `json:"username"`
-    Password string `json:"password"`
-  }
-  err = json.Unmarshal(body, &request)
-  if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    return
-  }
-
-  data := map[string]interface{}{"where": request.Username}
-  entryInterface, err := db.GetEntry("combatants", data)
-  if err != nil {
-    return
-  }
-
-  entry, ok := entryInterface.(map[string]interface{})
-
-  if !ok {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
-
-  if entry["error"] != nil || entry["password"] != request.Password {
-    w.WriteHeader(http.StatusUnauthorized)
-    return
-  }
-
-  bytes, _ := json.Marshal(entry)
-  w.Write(bytes)
-}
-
-
 func main() {
   err := godotenv.Load()
   if err != nil {
@@ -178,15 +81,17 @@ func main() {
   }
 
   server := WSServer.Server{Clients: []WSServer.User{}, Queue: []WSServer.User{}, Current_Games: []WSServer.Ranked_Set{}}
-  db = DB.NewBsonDB(os.Getenv("DATABASE_CONNECTION"))
+  DB.Bson_DB = DB.NewBsonDB(os.Getenv("DATABASE_CONNECTION"))
   //DB.MigrateTable()
 
   mux := http.NewServeMux()
-  mux.Handle("/ws", CorsMiddleware(websocket.Handler(server.Open_Conn)))
-  mux.HandleFunc("/auth", RouteCorsMiddleware(Auth))
 
-  mux.HandleFunc("/signup", RouteCorsMiddleware(Signup))
-  mux.HandleFunc("/login", RouteCorsMiddleware(Login))
+  mux.Handle("/ws", CorsMiddleware(websocket.Handler(server.Open_Conn)))
+
+  mux.HandleFunc("/auth", RouteCorsMiddleware(Auth.Auth))
+  mux.HandleFunc("/signup", RouteCorsMiddleware(Auth.Signup))
+  mux.HandleFunc("/login", RouteCorsMiddleware(Auth.Login))
+  mux.HandleFunc("/run", RouteCorsMiddleware(Compiler.RunCode))
 
   port := os.Getenv("PORT")
   if port == "" {

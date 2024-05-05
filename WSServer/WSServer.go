@@ -23,6 +23,8 @@ const (
   HARD_POINTS = 100
 
   TABLE_NAME = "combatants"
+  TIME_LIMIT_RUN = 8
+  TIME_LIMIT_SUBMIT = 30
 )
 
 type Question struct {
