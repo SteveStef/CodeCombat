@@ -15,7 +15,9 @@
         "rank": "number",
         "level": "string",
         "wins": "number",
-        "loses": "number"
+        "loses": "number",
+        "activityLog": "object",
+        "eloHistory": "object"
       }
     }
   ]

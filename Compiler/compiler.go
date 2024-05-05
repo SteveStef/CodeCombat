@@ -11,7 +11,6 @@ import (
   "KombatKode/WSServer"
 )
 
-
 func RunCode(w http.ResponseWriter, r *http.Request) {
   body, err := ioutil.ReadAll(r.Body)
   if err != nil {
@@ -55,37 +54,34 @@ func executeCode(language string, code string) ([]byte, bool) {
   var output []byte
   var cmd *exec.Cmd
   if language == "js" {
-    exec_command := "node " + write_file
+    exec_command := "cd Execute && node " + write_file
     cmd = exec.CommandContext(ctx, "bash", "-c", exec_command)
   } else if language == "py" {
-    exec_command := "python " + write_file
+    exec_command := "cd Execute && python3 " + write_file
     cmd = exec.CommandContext(ctx, "bash", "-c", exec_command)
   } else if language == "java" {
     exec_command := "cd Execute && javac " + write_file + " && java " + "Main"
     cmd = exec.CommandContext(ctx, "bash", "-c", exec_command)
-  } else if language == "c_pp" {
-    exec_command := "g++ " + write_file + " -o Main && ./Main"
+  } else if language == "cpp" {
+    exec_command := "cd Execute && g++ " + write_file + " -o Main && ./Main"
     cmd = exec.CommandContext(ctx, "bash", "-c", exec_command)
   } else {
     return []byte("Error executing code: Invalid language"), true
   }
 
   output, err = cmd.CombinedOutput()
-
   os.Remove("Execute/" + write_file)
   if language == "java" {
     os.Remove("Execute/Main.class")
-  } else if language == "c_pp" {
+  } else if language == "cpp" {
     os.Remove("Execute/Main")
   }
-
   if err != nil {
     if ctx.Err() == context.DeadlineExceeded {
       return []byte("Execution timed out"), true
     }
     return output, true
   }
-
   return output, false
 }
 

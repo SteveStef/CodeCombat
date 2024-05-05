@@ -10,7 +10,6 @@ import (
   "reflect"
 )
 
-
 func Auth (w http.ResponseWriter, r *http.Request) {
   token := r.Header.Get("Authorization")
   data := map[string]interface{}{"where": "id", "is": token}
@@ -38,10 +37,16 @@ func Signup(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusBadRequest)
     return
   }
+
   uuid := uuid.New().String()
+
+  aLog := make([]int8, 32)
+
   user := map[string]interface{}{
     "id": uuid, "username": request.Username, "password": request.Password,
-    "elo": 0, "language": "", "solved":0, "rank": 0,"level": "Apprentence", "wins": 0, "loses": 0}
+    "elo": 0, "language": "", "solved":0, "rank": 0,"level": "Apprentence", "wins": 0, "loses": 0,
+    "eloHistory": []int32{}, "activityLog": aLog,}
+
   entryInterface, err := DB.Bson_DB.CreateEntry("combatants", user)
   if err != nil {
     fmt.Println(err)
