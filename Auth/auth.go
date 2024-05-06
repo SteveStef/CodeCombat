@@ -2,12 +2,12 @@ package Auth
 
 import (
   "fmt"
+  "reflect"
   "io/ioutil"
   "net/http"
   "encoding/json"
-  "KombatKode/GolangBsonDB"
   "github.com/google/uuid"
-  "reflect"
+  "KombatKode/GolangBsonDB"
 )
 
 func Auth (w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
     return
   }
   data := map[string]interface{}{"where": request.Username}
-entryInterface, err := DB.Bson_DB.GetEntry("combatants", data)
+  entryInterface, err := DB.Bson_DB.GetEntry("combatants", data)
   if err != nil {
     return
   }
@@ -92,6 +92,8 @@ entryInterface, err := DB.Bson_DB.GetEntry("combatants", data)
     w.WriteHeader(http.StatusUnauthorized)
     return
   }
+
   bytes, _ := json.Marshal(entry)
   w.Write(bytes)
 }
+
