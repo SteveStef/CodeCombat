@@ -170,30 +170,46 @@ func (server *Server) Add_to_queue(player User) {
   }
 }
 
+func (server *Server) CancelQueue(player User) {
+  for i, user := range server.Queue {
+    if user.Conn == player.Conn {
+      server.Queue = append(server.Queue[:i], server.Queue[i+1:]...)
+      break
+    }
+  }
+}
+
 func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
-  _, err := player1.Conn.Write([]byte(msg))
+  set := Ranked_Set{
+    Player1: player1,
+    Player2: player2,
+    Question: Get_question(),
+  }
+
+  data, err := json.Marshal(set)
+  if err != nil {
+    fmt.Println("Error marshalling JSON")
+    return
+  }
+
+  _, err = player1.Conn.Write(data)
   if err != nil {
     fmt.Println("Unable to connect player 1")
     return
   }
-  _, err = player2.Conn.Write([]byte(msg))
+  _, err = player2.Conn.Write(data)
   if err != nil {
     fmt.Println("Unable to connect player 2")
     return
   }
 
-  set := Ranked_Set{
-    Player1: player1,
-    Player2: player2,
-    Question: *Get_question(),
-  }
 
   server.Current_Games = append(server.Current_Games, set)
   return 
 }
 
-func Get_question() *Question {
-  return &Question{
+func Get_question() Question {
+  return Question{
     Description: "What is the capital of France?",
     Answer: "Paris",
     Difficulty: EASY,

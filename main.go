@@ -99,7 +99,33 @@ func RankedGame(w http.ResponseWriter, r *http.Request) {
   }
 
   WSServer.Serv.Add_to_queue(player)
-  fmt.Println("Ranked Game Requested by", reqstruct.Username)
+  w.WriteHeader(http.StatusOK)
+}
+
+func CancelQueue(w http.ResponseWriter, r *http.Request) {
+  body, err := ioutil.ReadAll(r.Body)
+  if err != nil {  
+    w.WriteHeader(http.StatusBadRequest)
+    return;
+  }
+  var reqstruct struct {
+    Username string `json:"username"`
+  }
+  err = json.Unmarshal(body, &reqstruct)
+  if err != nil {
+    w.WriteHeader(http.StatusBadRequest)
+    return;
+  }
+
+  var player WSServer.User
+  for _, user := range WSServer.Serv.Clients {
+    if user.Username == reqstruct.Username {
+      player = user
+      break
+    }
+  }
+
+  WSServer.Serv.CancelQueue(player)
   w.WriteHeader(http.StatusOK)
 }
 
@@ -121,7 +147,9 @@ func main() {
   mux.HandleFunc("/signup", RouteCorsMiddleware(Auth.Signup))
   mux.HandleFunc("/login", RouteCorsMiddleware(Auth.Login))
   mux.HandleFunc("/run", RouteCorsMiddleware(Compiler.RunCode))
+
   mux.HandleFunc("/ranked", RouteCorsMiddleware(RankedGame))
+  mux.HandleFunc("/cancel-queue", RouteCorsMiddleware(CancelQueue))
 
   port := os.Getenv("PORT")
   if port == "" {

@@ -76,6 +76,7 @@ func executeCode(language string, code string) ([]byte, bool) {
   } else if language == "cpp" {
     os.Remove("Execute/Main")
   }
+
   if err != nil {
     if ctx.Err() == context.DeadlineExceeded {
       return []byte("Execution timed out"), true
