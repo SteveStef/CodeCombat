@@ -89,7 +89,16 @@ func RankedGame(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusBadRequest)
     return;
   }
-  //wssever.Add_to_queue()
+
+  var player WSServer.User
+  for _, user := range WSServer.Serv.Clients {
+    if user.Username == reqstruct.Username {
+      player = user
+      break
+    }
+  }
+
+  WSServer.Serv.Add_to_queue(player)
   fmt.Println("Ranked Game Requested by", reqstruct.Username)
   w.WriteHeader(http.StatusOK)
 }

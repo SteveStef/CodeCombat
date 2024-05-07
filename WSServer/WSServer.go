@@ -147,13 +147,49 @@ func (server *Server) Remove_from_queue() {
   server.Queue = server.Queue[1:]
 }
 
-func (server *Server) Add_to_queue(socket *websocket.Conn) bool {
-  if(len(server.Queue) < MAX_PLAYERS) {
-    return true
+func (server *Server) Add_to_queue(player User) {
+  if len(server.Queue) == 0 {
+    fmt.Println("Adding a user to the queue")
+    for _, user := range server.Clients {
+      if user.Conn == player.Conn {
+        server.Queue = append(server.Queue, user)
+        break
+      }
+    }
   } else {
-    server.Remove_from_queue()
-    return false
+    fmt.Println("Starting a game and broadcasting")
+
+    // pop from queue and start game
+    var player2 User
+    player2 = server.Queue[0]
+    server.Queue = server.Queue[1:]
+
+    // broadcast to both players
+    server.BroadCast_Battle("Found a game", player, player2)
+
   }
+}
+
+func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
+  _, err := player1.Conn.Write([]byte(msg))
+  if err != nil {
+    fmt.Println("Unable to connect player 1")
+    return
+  }
+  _, err = player2.Conn.Write([]byte(msg))
+  if err != nil {
+    fmt.Println("Unable to connect player 2")
+    return
+  }
+
+  set := Ranked_Set{
+    Player1: player1,
+    Player2: player2,
+    Question: *Get_question(),
+  }
+
+  server.Current_Games = append(server.Current_Games, set)
+  return 
 }
 
 func Get_question() *Question {
