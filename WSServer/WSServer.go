@@ -1,10 +1,11 @@
 package WSServer
 
 import (
-  "fmt"
-  "io"
-  "encoding/json"
-  "golang.org/x/net/websocket"
+	"encoding/json"
+	"fmt"
+	"io"
+  "KombatKode/GolangBsonDB"
+	"golang.org/x/net/websocket"
 )
 
 const (
@@ -28,8 +29,8 @@ const (
 )
 
 type Question struct {
+  Title string
   Description string
-  Answer string
   Difficulty int
   Category string
   Points int
@@ -186,7 +187,22 @@ func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
     Question: Get_question(),
   }
 
-  data, err := json.Marshal(set)
+  res1 := map[string]interface{}{"where": player1.Username}
+  res2 := map[string]interface{}{"where": player2.Username}
+
+  entryInterface1, err1 := DB.Bson_DB.GetEntry("combatants", res1)
+  entryInterface2, err2 := DB.Bson_DB.GetEntry("combatants", res2)
+
+  if err1 != nil || err2 != nil {
+    fmt.Println("Error getting entry from database")
+    return
+  }
+  
+  entry1, _ := entryInterface1.(map[string]interface{})
+  entry2, _ := entryInterface2.(map[string]interface{})
+  d := map[string]interface{}{"player1": entry1, "player2": entry2, "question": set.Question}
+
+  data, err := json.Marshal(d)
   if err != nil {
     fmt.Println("Error marshalling JSON")
     return
@@ -203,15 +219,14 @@ func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
     return
   }
 
-
   server.Current_Games = append(server.Current_Games, set)
   return 
 }
 
 func Get_question() Question {
   return Question{
+    Title: "Capital of France",
     Description: "What is the capital of France?",
-    Answer: "Paris",
     Difficulty: EASY,
     Category: "Geography",
     Points: EASY_POINTS,
