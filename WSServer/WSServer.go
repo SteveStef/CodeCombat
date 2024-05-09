@@ -69,6 +69,17 @@ func Send(message string, socket *websocket.Conn) error {
   return nil;
 }
 
+func (server *Server) CheckCurrentGames(username string) (Ranked_Set, bool) {
+  for _, game := range server.Current_Games {
+    if game.Player1.Username == username || game.Player2.Username == username {
+      fmt.Println("Found a game")
+      return game, true
+    }
+  }
+  fmt.Println("No game found")
+  return Ranked_Set{}, false
+}
+
 func (server *Server) Open_Conn(socket *websocket.Conn) {
   fmt.Println("Connection established", socket.RemoteAddr())
   user := User{ ID: fmt.Sprintf("%d", (len(server.Clients) + 1)), Username: "guest", Conn: socket }
@@ -135,6 +146,7 @@ func (server *Server) Close_Conn(socket *websocket.Conn) {
   socket.Close()
 }
 
+
 func (server *Server) Broadcast(msg []byte) {
   for _, user := range server.Clients {
     _, err := user.Conn.Write(msg)
@@ -190,16 +202,14 @@ func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
   res1 := map[string]interface{}{"where": player1.Username}
   res2 := map[string]interface{}{"where": player2.Username}
 
-  entryInterface1, err1 := DB.Bson_DB.GetEntry("combatants", res1)
-  entryInterface2, err2 := DB.Bson_DB.GetEntry("combatants", res2)
+  entry1, err1 := DB.Bson_DB.GetEntry("combatants", res1)
+  entry2, err2 := DB.Bson_DB.GetEntry("combatants", res2)
 
   if err1 != nil || err2 != nil {
     fmt.Println("Error getting entry from database")
     return
   }
   
-  entry1, _ := entryInterface1.(map[string]interface{})
-  entry2, _ := entryInterface2.(map[string]interface{})
   d := map[string]interface{}{"player1": entry1, "player2": entry2, "question": set.Question}
 
   data, err := json.Marshal(d)

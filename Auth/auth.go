@@ -2,24 +2,41 @@ package Auth
 
 import (
   "fmt"
-  "reflect"
   "io/ioutil"
   "net/http"
   "encoding/json"
   "github.com/google/uuid"
   "KombatKode/GolangBsonDB"
+  "KombatKode/WSServer"
 )
 
 func Auth (w http.ResponseWriter, r *http.Request) {
   token := r.Header.Get("Authorization")
   data := map[string]interface{}{"where": "id", "is": token}
-  entryInterface, err := DB.Bson_DB.GetEntries("combatants", data)
-  if err != nil {
+  entrys, err := DB.Bson_DB.GetEntries("combatants", data)
+
+  if err != nil { 
+    fmt.Println("working")
+    w.WriteHeader(http.StatusInternalServerError)
+    return 
+  }
+
+  if len(entrys) == 0 {
+    w.WriteHeader(http.StatusUnauthorized)
     return
   }
-  entry := reflect.ValueOf(entryInterface)
-  bytes, _ := json.Marshal(entry.Interface())
-  w.Write(bytes)
+
+  currentGame, found := WSServer.Serv.CheckCurrentGames(entrys[0]["username"].(string))
+  fmt.Println(currentGame)
+
+  if found {
+    data = map[string]interface{}{"player": entrys[0], "game": currentGame}
+    bytes, _ := json.Marshal(data)
+    w.Write(bytes)
+  } else {
+    bytes, _ := json.Marshal(entrys[0])
+    w.Write(bytes)
+  }
 }
 
 func Signup(w http.ResponseWriter, r *http.Request) {
@@ -47,17 +64,13 @@ func Signup(w http.ResponseWriter, r *http.Request) {
     "elo": 0, "language": "", "solved":0, "rank": 0,"level": "Apprentence", "wins": 0, "loses": 0,
     "eloHistory": []int32{}, "activityLog": aLog,}
 
-  entryInterface, err := DB.Bson_DB.CreateEntry("combatants", user)
+  entry, err := DB.Bson_DB.CreateEntry("combatants", user)
   if err != nil {
     fmt.Println(err)
     w.WriteHeader(http.StatusInternalServerError)
     return
   }
-  entry, ok := entryInterface.(map[string]interface{})
-  if !ok {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+
   bytes, _ := json.Marshal(entry)
   w.Write(bytes)
 }
@@ -78,16 +91,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusBadRequest)
     return
   }
+
   data := map[string]interface{}{"where": request.Username}
-  entryInterface, err := DB.Bson_DB.GetEntry("combatants", data)
+  entry, err := DB.Bson_DB.GetEntry("combatants", data)
   if err != nil {
     return
   }
-  entry, ok := entryInterface.(map[string]interface{})
-  if !ok {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+
   if entry["error"] != nil || entry["password"] != request.Password {
     w.WriteHeader(http.StatusUnauthorized)
     return
