@@ -27,7 +27,7 @@ func Auth (w http.ResponseWriter, r *http.Request) {
   }
 
   currentGame, found := WSServer.Serv.CheckCurrentGames(entrys[0]["username"].(string))
-  fmt.Println(currentGame)
+  //fmt.Println(currentGame)
 
   if found {
     data = map[string]interface{}{"player": entrys[0], "game": currentGame}

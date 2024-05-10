@@ -1,9 +1,10 @@
 package WSServer
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
+	"fmt"
+  "time"
+	"encoding/json"
   "KombatKode/GolangBsonDB"
 	"golang.org/x/net/websocket"
 )
@@ -35,6 +36,7 @@ type Question struct {
   Category string
   Points int
   Time int
+  StartTime int
 }
 
 type Ranked_Set struct {
@@ -241,6 +243,7 @@ func Get_question() Question {
     Category: "Geography",
     Points: EASY_POINTS,
     Time: EASY_TIME,
+    StartTime: int(time.Now().Unix()),
   }
 }
 
