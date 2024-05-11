@@ -1,0 +1,14 @@
+Given an array of integers nums and an integer target, return true if that number exists inside the array.
+If the number does not exist inside the array, return false.
+
+Example 1:
+
+Input: nums = [2,7,11,15], target = 9
+Output: false
+Explanation: 9 is not in the array.
+
+Example 2:
+
+Input: nums = [3,2,4], target = 2
+Output: true
+

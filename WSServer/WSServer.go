@@ -1,11 +1,14 @@
 package WSServer
 
 import (
-	"io"
-	"fmt"
-  "time"
+	"KombatKode/GolangBsonDB"
 	"encoding/json"
-  "KombatKode/GolangBsonDB"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"time"
+
 	"golang.org/x/net/websocket"
 )
 
@@ -27,6 +30,7 @@ const (
   TABLE_NAME = "combatants"
   TIME_LIMIT_RUN = 8
   TIME_LIMIT_SUBMIT = 30
+  NUM_QUESTIONS = 1
 )
 
 type Question struct {
@@ -39,10 +43,26 @@ type Question struct {
   StartTime int
 }
 
+type Result struct {
+  Runtime int
+  Correct bool
+  TestCasesPassed int
+  Points int
+  Winner bool
+}
+
 type Ranked_Set struct {
   Player1 User
   Player2 User
   Question Question 
+
+  SubmissionP1 string // this will be their code
+  SubmissionP2 string // ... ^
+
+  ResultP1 Result // will be nil until the game is over
+  ResultP2 Result // will be nil until the game is over
+
+  CurrentTime int
 }
 
 type Server struct {
@@ -63,25 +83,8 @@ func CreateServer() {
   Serv = &Server{Clients: []User{}, Queue: []User{}, Current_Games: []Ranked_Set{}}
 }
 
-func Send(message string, socket *websocket.Conn) error {
-  _, err := socket.Write([]byte(message))
-  if err != nil {
-    return err
-  }
-  return nil;
-}
 
-func (server *Server) CheckCurrentGames(username string) (Ranked_Set, bool) {
-  for _, game := range server.Current_Games {
-    if game.Player1.Username == username || game.Player2.Username == username {
-      fmt.Println("Found a game")
-      return game, true
-    }
-  }
-  fmt.Println("No game found")
-  return Ranked_Set{}, false
-}
-
+// ------------------------------------------- CONNECTING STUFF ------------------------------------
 func (server *Server) Open_Conn(socket *websocket.Conn) {
   fmt.Println("Connection established", socket.RemoteAddr())
   user := User{ ID: fmt.Sprintf("%d", (len(server.Clients) + 1)), Username: "guest", Conn: socket }
@@ -158,6 +161,27 @@ func (server *Server) Broadcast(msg []byte) {
   }
 }
 
+// ------------------------------- RANKED TIMER STUFF / GAME EVAL ---------------------------------
+func (rs *Ranked_Set) StartCounter() {
+  duration := time.Duration(rs.Question.Time) * time.Minute;
+  done := make(chan bool)
+  go func() {
+    for d := duration; d > 0; d -= time.Second {
+      rs.CurrentTime = int(d.Seconds())
+      time.Sleep(time.Second)
+    }
+    done <- true
+  }()
+
+  <-done
+  rs.EvaluateGame()
+}
+
+func (rs *Ranked_Set) EvaluateGame() {
+
+}
+
+// ---------------------------- QUEUEING STUFF ----------------------------------------
 func (server *Server) Remove_from_queue() {
   server.Queue = server.Queue[1:]
 }
@@ -193,12 +217,37 @@ func (server *Server) CancelQueue(player User) {
     }
   }
 }
+// -------------------------------------- BROADCASTING STUFF  --------------------------------
 
+func Send(message string, socket *websocket.Conn) error {
+  _, err := socket.Write([]byte(message))
+  if err != nil {
+    return err
+  }
+  return nil;
+}
+
+func (server *Server) CheckCurrentGames(username string) (Ranked_Set, bool) {
+  for _, game := range server.Current_Games {
+    if game.Player1.Username == username || game.Player2.Username == username {
+      fmt.Println("Found a game")
+      return game, true
+    }
+  }
+  fmt.Println("No game found")
+  return Ranked_Set{}, false
+}
 func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
+  question, error := Get_question()
+  if error != nil { 
+    fmt.Println("Error getting question")
+    fmt.Println(error)
+    return
+  }
   set := Ranked_Set{
     Player1: player1,
     Player2: player2,
-    Question: Get_question(),
+    Question: question,
   }
 
   res1 := map[string]interface{}{"where": player1.Username}
@@ -235,15 +284,29 @@ func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
   return 
 }
 
-func Get_question() Question {
-  return Question{
-    Title: "Capital of France",
-    Description: "What is the capital of France?",
-    Difficulty: EASY,
-    Category: "Geography",
-    Points: EASY_POINTS,
-    Time: EASY_TIME,
-    StartTime: int(time.Now().Unix()),
-  }
-}
+// ---------------------------- QUESTION STUFF ------------------------------------
+func Get_question() (Question, error) {
+	randomNumber := rand.Intn(NUM_QUESTIONS) + 1
+  promptPath := fmt.Sprintf("Questions/%d/Prompt.dat", randomNumber)
+	promptBytes, err := ioutil.ReadFile(promptPath)
+	if err!= nil {
+		return Question{}, err
+	}
+	prompt := string(promptBytes)
+	infoPath := fmt.Sprintf("Questions/%d/Info.json", randomNumber)
+	infoBytes, err := ioutil.ReadFile(infoPath)
+	if err!= nil {
+		return Question{}, err
+	}
 
+	var question Question
+	err = json.Unmarshal(infoBytes, &question)
+	if err!= nil {
+		return Question{}, err
+	}
+
+  question.Description = prompt
+  question.StartTime = int(time.Now().Unix())
+
+	return question, nil
+}
