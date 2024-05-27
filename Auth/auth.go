@@ -2,6 +2,7 @@ package Auth
 
 import (
   "fmt"
+  "time"
   "io/ioutil"
   "net/http"
   "encoding/json"
@@ -27,10 +28,12 @@ func Auth (w http.ResponseWriter, r *http.Request) {
   }
 
   currentGame, found := WSServer.Serv.CheckCurrentGames(entrys[0]["username"].(string))
-  //fmt.Println(currentGame)
+  currentTime := int(time.Now().Unix())
+
+  timeLeft := currentGame.Question.Time * 60 - (currentTime - currentGame.CurrentTime)
 
   if found {
-    data = map[string]interface{}{"player": entrys[0], "game": currentGame}
+    data = map[string]interface{}{"player": entrys[0], "game": currentGame, "timeLeft": timeLeft}
     bytes, _ := json.Marshal(data)
     w.Write(bytes)
   } else {

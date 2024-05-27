@@ -167,6 +167,7 @@ func (rs *Ranked_Set) StartCounter() {
   done := make(chan bool)
   go func() {
     for d := duration; d > 0; d -= time.Second {
+      //fmt.Println(d)
       rs.CurrentTime = int(d.Seconds())
       time.Sleep(time.Second)
     }
@@ -178,7 +179,13 @@ func (rs *Ranked_Set) StartCounter() {
 }
 
 func (rs *Ranked_Set) EvaluateGame() {
-
+  fmt.Println("Evaluating game")
+  for i, game := range Serv.Current_Games {
+    if game == *rs {
+      Serv.Current_Games = append(Serv.Current_Games[:i], Serv.Current_Games[i+1:]...)
+      break
+    }
+  }
 }
 
 // ---------------------------- QUEUEING STUFF ----------------------------------------
@@ -237,6 +244,7 @@ func (server *Server) CheckCurrentGames(username string) (Ranked_Set, bool) {
   fmt.Println("No game found")
   return Ranked_Set{}, false
 }
+
 func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
   question, error := Get_question()
   if error != nil { 
@@ -244,10 +252,12 @@ func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
     fmt.Println(error)
     return
   }
+// set currentTime this to the time right now 
   set := Ranked_Set{
     Player1: player1,
     Player2: player2,
     Question: question,
+    CurrentTime: int(time.Now().Unix()),
   }
 
   res1 := map[string]interface{}{"where": player1.Username}
@@ -280,7 +290,9 @@ func (server *Server) BroadCast_Battle(msg string, player1 User, player2 User) {
     return
   }
 
+  fmt.Println("Starting the timer")
   server.Current_Games = append(server.Current_Games, set)
+  go set.StartCounter()
   return 
 }
 
